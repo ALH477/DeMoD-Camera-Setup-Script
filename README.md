@@ -2,6 +2,7 @@ DeMoD Camera Setup Script
 Developed by DeMoD LLC
 This project transforms your Single-Board Computer (SBC) into an IP camera system, streaming USB webcam feeds over RTSP using FFMPEG and MediaMTX. It supports large-scale deployments with multi-camera configurations via JSONC and is optimized for various SBC architectures (ARM 32/64-bit, RISC-V, x86-64).
 ![](https://github.com/ALH477/DeMoD-Camera-Setup-Script/blob/main/untitled-f000062.png?raw=true)
+
 Features
 
 Modular Design: Shared logic in utils.py for JSONC parsing, security checks, and YML generation.
