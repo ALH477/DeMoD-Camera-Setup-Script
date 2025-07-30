@@ -1,118 +1,68 @@
-# DeMoD Camera Setup Script
-
+DeMoD Camera Setup Script
 Developed by DeMoD LLC
+This project turns your Orange Pi Zero 2W into an IP camera by streaming USB webcam feeds over RTSP using FFMPEG and MediaMTX. It supports large-scale deployments with multi-camera configurations via JSONC.
+Features
 
-This project turns your Orange Pi Zero 2W into an IP camera by streaming a USB webcam feed over RTSP using FFMPEG and MediaMTX. It's designed for integration with NVR systems. The scripts include interactive prompts, security features (checksums, auth), a web-based configuration interface, and now a TUI security checker.
+Modular design with utils.py for shared logic (JSONC parsing, security checks, YML writing).
+JSONC support for automated multi-camera setups, with comments and environment variable integration for passwords.
+Environment variable support for sensitive data (e.g., passwords).
+Automatic USB webcam detection and selection.
+RTSP streaming with configurable H.264 encoding (bitrate, framerate).
+Optional basic authentication for streams.
+Firewall configuration (UFW port 8554/TCP).
+Download integrity verification via SHA256 checksums.
+Robust error handling.
+Web-based configuration (config.py) with security status, rating system, and yes/no security questions.
+TUI-based security checker (security_checker.py) for guided setup and security assessments.
+Compatible with Linux on Orange Pi Zero 2W (assumes apt, UFW, FFMPEG installed).
 
-## Features
-- Automatic The user wants:
+Requirements
 
-1. Make the setup script ask to run the security checker at the end.
+Orange Pi Zero 2W running Linux (e.g., Armbian).
+USB webcam(s) connected.
+Installed: FFMPEG, UFW, Git, Vim (as per your setup). The script installs v4l-utils, Python 3, etc.
+Network access for downloads.
 
-2. Add a rating system into the TUI and HTML that checks the config then asks a few yes no questions.
+Installation
 
-First, update setup.sh: At the end, after "Setup complete...", add a prompt: read -p "Run the security checker now? (y/n): " answer; if y, then python3 security_checker.py
+Clone or download the scripts: setup.sh, start.sh, config.py, security_checker.py, utils.py, config.jsonc, LICENSE.
+Make executable: chmod +x setup.sh start.sh.
+Run ./setup.sh (with sudo if needed). Follow prompts to install dependencies, download MediaMTX, configure UFW, and optionally run the security checker.
 
-For the TUI (security_checker.py) and HTML (config.py):
+Usage
 
-Add a "rating system" that checks the config (probably mediamtx.yml and system settings), then asks a few yes/no questions.
+CLI Streaming: Run ./start.sh for single-camera setup with interactive prompts.
+Web Configuration: Run python3 config.py and access http://<orange-pi-ip>:8000. Paste JSONC content for multi-camera setup or use form fields for single-camera. Answer security questions to improve the rating.
+TUI Security Checker: Run python3 security_checker.py for a guided security walkthrough, supporting JSONC for multi-camera configs.
+Stream URL: rtsp://<orange-pi-ip>:8554/cam<i> (e.g., cam0, cam1; include user:pass@ if authentication enabled).
+Environment Variables: For secure password management, set environment variables (e.g., export RTSP_PASS_CAM0=secret) before running scripts with JSONC configs.
+Auto-Start: Add to crontab: @reboot /path/to/start.sh (non-interactive; pre-configure YML). For web/TUI, use systemd services.
+Stop: Press Ctrl+C in terminal or use web interface to restart (kills old process).
 
-The rating could be a security score based on checks (e.g., non-root, video group, UFW open, auth enabled). Say 25 points each, total 100.
+Security Notes
 
-After displaying status, show score, then ask yes/no questions like: "Is the device on a secure network? (y/n)", "Do you have physical access control? (y/n)", etc. Use answers to adjust or note in rating.
+Authentication: Enable RTSP authentication to prevent unauthorized access.
+Environment Variables: Use env:VAR_NAME in JSONC for passwords to avoid plain text storage.
+Firewall: Only port 8554/TCP is opened by default; add UFW rule for web port 8000 if exposing remotely (not recommended—use VPN).
+Downloads: Verified with SHA256 checksums for integrity.
+Privileges: Run as non-root user; add to 'video' group for webcam access.
+Exposure: Do not expose ports publicly without HTTPS/VPN. Web server binds to localhost by default.
+Passwords: Stored in plain text in mediamtx.yml—secure your device physically and use env vars where possible.
+Use security_checker.py or config.py to verify and adjust security settings. The rating system incorporates automated checks and user responses for a comprehensive score.
 
-For TUI: After final status, calculate score, ask 2-3 yes/no, then give final rating.
+Troubleshooting
 
-For HTML: In the security status section, add a score. On POST, include questions in response? But since it's a form, perhaps add yes/no checkboxes in the form for additional security questions, then in response, factor them into a rating.
+No Webcam Detected: Run ls /dev/video* or v4l2-ctl --list-devices to verify devices.
+Checksum Failure: Retry download; possible network issue or tampering.
+JSONC Parse Error: Ensure valid JSONC format (see config.jsonc sample).
+Environment Variable Not Set: Set variables (e.g., export RTSP_PASS_CAM0=secret) before running.
+Stream Not Working: Test with ffplay rtsp://localhost:8554/cam0 on the Pi.
+High CPU Usage: Lower bitrate/framerate in config.
+Check MediaMTX logs (runs in foreground) for detailed errors.
 
-The request says "checks the config then asks a few yes no questions." So for HTML, add fields to the form.
-
-Choose questions: e.g., "Is the Orange Pi behind a firewall/VPN? (y/n)", "Have you changed default passwords? (y/n)", "Is remote access restricted? (y/n)"
-
-Based on answers and checks, compute rating (e.g., base score from automated checks + points from yes answers).
-
-Update README if needed, but probably minor.
-
-No tools needed, as this is code refinement.
-
-Output the updated scripts.```bash
-#!/bin/bash
-
-# Developed by DeMoD LLC
-# This script installs dependencies, downloads the latest MediaMTX (arm64) with checksum verification, extracts it, and configures UFW.
-# Now with interactive prompts for confirmation, security measures, and error handling.
-# Run as sudo if needed for apt and UFW.
-
-set -e  # Exit on any error
-trap 'echo "Error occurred. Cleaning up..."; rm -f mediamtx.tar.gz checksums.sha256; exit 1' ERR INT TERM
-
-# Check if running as root (not recommended for security)
-if [ "$EUID" -eq 0 ]; then
-  echo "Warning: Running as root. For better security, run as a non-root user and use sudo only when prompted."
-fi
-
-echo "Welcome to the MediaMTX setup script for Orange Pi webcam streaming."
-echo "Developed by DeMoD LLC"
-echo "This will update packages, install v4l-utils/wget/tar/python3 if needed, download MediaMTX v1.13.1 with checksum verification, and open UFW port 8554."
-read -p "Proceed with package update and installation? (y/n): " answer
-answer=${answer,,}  # Convert to lowercase for validation
-if [ "$answer" != "y" ]; then
-  echo "Setup aborted."
-  exit 0
-fi
-
-sudo apt update || { echo "apt update failed."; exit 1; }
-sudo apt install -y v4l-utils wget tar python3 python3-venv || { echo "Package installation failed."; exit 1; }
-
-# Ensure user has access to video devices (for /dev/videoX)
-echo "For webcam access, ensure your user is in the 'video' group."
-read -p "Add current user to 'video' group? (Requires logout/reboot; y/n): " answer
-answer=${answer,,}
-if [ "$answer" = "y" ]; then
-  sudo groupadd -f video || { echo "groupadd failed."; exit 1; }
-  sudo usermod -aG video "$USER" || { echo "usermod failed."; exit 1; }
-  echo "User added to 'video' group. Please log out and back in for changes to take effect."
-fi
-
-read -p "Proceed to download and extract MediaMTX with security verification? (y/n): " answer
-answer=${answer,,}
-if [ "$answer" != "y" ]; then
-  echo "Setup aborted."
-  exit 0
-fi
-
-# Latest version as of July 29, 2025
-VERSION="1.13.1"
-FILE="mediamtx_v${VERSION}_linux_arm64.tar.gz"
-URL="https://github.com/bluenviron/mediamtx/releases/download/v${VERSION}/${FILE}"
-CHECKSUM_URL="https://github.com/bluenviron/mediamtx/releases/download/v${VERSION}/checksums.sha256"
-
-wget "$URL" -O "$FILE" || { echo "Download failed."; rm -f "$FILE"; exit 1; }
-wget "$CHECKSUM_URL" -O checksums.sha256 || { echo "Checksum download failed."; rm -f "$FILE" checksums.sha256; exit 1; }
-
-# Verify checksum for security
-echo "Verifying download integrity with SHA256 checksum..."
-grep "$FILE" checksums.sha256 | sha256sum --check - || { echo "Checksum verification failed! Download may be corrupted or tampered. Aborting."; rm -f "$FILE" checksums.sha256; exit 1; }
-echo "Checksum verified successfully."
-
-tar -xzf "$FILE" mediamtx mediamtx.yml || { echo "Extraction failed."; rm -f "$FILE" checksums.sha256; exit 1; }
-rm "$FILE" checksums.sha256
-
-read -p "Proceed to open UFW port 8554 for RTSP? (y/n): " answer
-answer=${answer,,}
-if [ "$answer" != "y" ]; then
-  echo "Setup aborted."
-  exit 0
-fi
-
-# Open RTSP port in UFW (minimal exposure)
-sudo ufw allow 8554/tcp || { echo "UFW allow failed."; exit 1; }
-sudo ufw reload || { echo "UFW reload failed."; exit 1; }
-
-echo "Setup complete. MediaMTX is ready in the current directory. Run start.sh for CLI, python3 config.py for web, or python3 security_checker.py for TUI security config."
-
-read -p "Run the security checker now? (y/n): " answer
-answer=${answer,,}
-if [ "$answer" = "y" ]; then
-  python3 security_checker.py
-fi
+License
+This project is licensed under the GNU General Public License v3.0 (GPL v3). See the LICENSE file for details. Any modifications or derivative works must also be licensed under GPL v3, ensuring that improvements remain open source. For more information, visit https://www.gnu.org/licenses/gpl-3.0.html.
+Contributing
+Contributions are welcome! Please ensure that any changes are licensed under GPL v3 and include the appropriate copyright notice. Submit pull requests with clear descriptions of improvements.
+Support
+For support, contact DeMoD LLC.
