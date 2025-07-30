@@ -1,68 +1,93 @@
 DeMoD Camera Setup Script
 Developed by DeMoD LLC
-This project turns your Orange Pi Zero 2W into an IP camera by streaming USB webcam feeds over RTSP using FFMPEG and MediaMTX. It supports large-scale deployments with multi-camera configurations via JSONC.
+This project transforms your Single-Board Computer (SBC) into an IP camera system, streaming USB webcam feeds over RTSP using FFMPEG and MediaMTX. It supports large-scale deployments with multi-camera configurations via JSONC and is optimized for various SBC architectures (ARM 32/64-bit, RISC-V, x86-64).
 Features
 
-Modular design with utils.py for shared logic (JSONC parsing, security checks, YML writing).
-JSONC support for automated multi-camera setups, with comments and environment variable integration for passwords.
-Environment variable support for sensitive data (e.g., passwords).
-Automatic USB webcam detection and selection.
-RTSP streaming with configurable H.264 encoding (bitrate, framerate).
-Optional basic authentication for streams.
-Firewall configuration (UFW port 8554/TCP).
-Download integrity verification via SHA256 checksums.
-Robust error handling.
-Web-based configuration (config.py) with security status, rating system, and yes/no security questions.
-TUI-based security checker (security_checker.py) for guided setup and security assessments.
-Compatible with Linux on Orange Pi Zero 2W (assumes apt, UFW, FFMPEG installed).
+Modular Design: Shared logic in utils.py for JSONC parsing, security checks, and YML generation.
+Multi-Camera Support: Configure multiple cameras using JSONC with environment variable integration for passwords.
+Broad SBC Compatibility: Supports ARM (32/64-bit), RISC-V, and x86-64 architectures with architecture-specific MediaMTX binaries.
+Security Features: SHA256 checksum verification, UFW firewall configuration, and optional RTSP authentication.
+User Interfaces: CLI (start.sh), TUI (security_checker.py), and web-based (config.py) configuration options.
+Robust Error Handling: Input validation and clear error messages for reliable operation.
+Security Rating System: Evaluates system security with automated checks and user responses.
+GPL v3 Licensed: Ensures all improvements remain open source.
 
 Requirements
 
-Orange Pi Zero 2W running Linux (e.g., Armbian).
-USB webcam(s) connected.
-Installed: FFMPEG, UFW, Git, Vim (as per your setup). The script installs v4l-utils, Python 3, etc.
-Network access for downloads.
+SBC running a Debian-based Linux (e.g., Armbian, Raspberry Pi OS) or compatible OS with apt.
+USB webcam(s) with Video4Linux2 (v4l2) support.
+Installed dependencies: FFMPEG, UFW, Git, Vim. The setup script installs v4l-utils, wget, tar, python3, and python3-venv.
+Network access for downloading MediaMTX.
 
 Installation
 
-Clone or download the scripts: setup.sh, start.sh, config.py, security_checker.py, utils.py, config.jsonc, LICENSE.
-Make executable: chmod +x setup.sh start.sh.
-Run ./setup.sh (with sudo if needed). Follow prompts to install dependencies, download MediaMTX, configure UFW, and optionally run the security checker.
+Clone or download the repository containing: setup.sh, start.sh, config.py, security_checker.py, utils.py, config.jsonc, LICENSE.
+Set executable permissions: chmod +x setup.sh start.sh.
+Run ./setup.sh (with sudo if needed). Select your SBC architecture (ARM 32/64-bit, RISC-V, x86-64), follow prompts to install dependencies, download MediaMTX, configure UFW, and optionally run the security checker.
 
 Usage
 
-CLI Streaming: Run ./start.sh for single-camera setup with interactive prompts.
-Web Configuration: Run python3 config.py and access http://<orange-pi-ip>:8000. Paste JSONC content for multi-camera setup or use form fields for single-camera. Answer security questions to improve the rating.
-TUI Security Checker: Run python3 security_checker.py for a guided security walkthrough, supporting JSONC for multi-camera configs.
-Stream URL: rtsp://<orange-pi-ip>:8554/cam<i> (e.g., cam0, cam1; include user:pass@ if authentication enabled).
-Environment Variables: For secure password management, set environment variables (e.g., export RTSP_PASS_CAM0=secret) before running scripts with JSONC configs.
-Auto-Start: Add to crontab: @reboot /path/to/start.sh (non-interactive; pre-configure YML). For web/TUI, use systemd services.
-Stop: Press Ctrl+C in terminal or use web interface to restart (kills old process).
+CLI Single-Camera Setup: Run ./start.sh for interactive single-camera configuration.
+Web Configuration: Run python3 config.py and access http://<sbc-ip>:8000. Paste JSONC for multi-camera setups or use form fields for a single camera. Answer security questions to improve the rating.
+TUI Security Checker: Run python3 security_checker.py for a guided security and configuration walkthrough, supporting JSONC for multi-camera setups.
+Stream URLs: rtsp://<sbc-ip>:8554/cam<i> (e.g., cam0, cam1; include user:pass@ if authentication is enabled).
+Environment Variables: For secure password management, set variables (e.g., export RTSP_PASS_CAM0=secret) before using JSONC configs.
+Auto-Start: Add to crontab: @reboot /path/to/start.sh (single-camera, pre-configure YML). For multi-camera or TUI/web, use systemd services.
+Stop: Press Ctrl+C in terminal or use the web interface to restart (terminates old process).
+
+Sample config.jsonc
+{
+  // Example multi-camera configuration
+  "cams": [
+    {
+      "device": "/dev/video0",
+      "framerate": 30,
+      "bitrate": "800k",
+      "auth": {
+        "user": "user1",
+        "pass": "env:RTSP_PASS_CAM0"
+      }
+    },
+    {
+      "device": "/dev/video1",
+      "framerate": 25,
+      "bitrate": "600k"
+    }
+  ]
+}
 
 Security Notes
 
-Authentication: Enable RTSP authentication to prevent unauthorized access.
+Authentication: Enable RTSP authentication to prevent unauthorized stream access.
 Environment Variables: Use env:VAR_NAME in JSONC for passwords to avoid plain text storage.
-Firewall: Only port 8554/TCP is opened by default; add UFW rule for web port 8000 if exposing remotely (not recommended—use VPN).
-Downloads: Verified with SHA256 checksums for integrity.
-Privileges: Run as non-root user; add to 'video' group for webcam access.
-Exposure: Do not expose ports publicly without HTTPS/VPN. Web server binds to localhost by default.
-Passwords: Stored in plain text in mediamtx.yml—secure your device physically and use env vars where possible.
-Use security_checker.py or config.py to verify and adjust security settings. The rating system incorporates automated checks and user responses for a comprehensive score.
+Firewall: By default, only port 8554/TCP is opened. Add a UFW rule for port 8000 if exposing the web interface remotely (use VPN for security).
+Downloads: MediaMTX downloads are verified with SHA256 checksums.
+Privileges: Run as a non-root user and ensure membership in the 'video' group for webcam access.
+Network Exposure: Avoid exposing ports publicly without HTTPS/VPN. The web server binds to localhost by default.
+Password Storage: Passwords are stored in plain text in mediamtx.yml. Secure the device physically and use environment variables.
+Use security_checker.py or config.py to assess and improve security settings. The rating system combines automated checks with user responses.
+
+Multi-SBC Compatibility
+The codebase supports multiple SBC architectures:
+
+ARM 64-bit: Orange Pi Zero 2W, Raspberry Pi 4/5, ROCK Pi, etc.
+ARM 32-bit: Raspberry Pi Zero, older ARM SBCs.
+RISC-V: StarFive VisionFive, Milk-V Duo.
+x86-64: Intel NUC, mini-PCs.The setup.sh script prompts for architecture selection to download the correct MediaMTX binary. Ensure the OS supports apt and v4l2 for webcams. For non-Debian OSes (e.g., Fedora), modify package manager commands (dnf instead of apt) and firewall tools (firewalld instead of ufw).
 
 Troubleshooting
 
-No Webcam Detected: Run ls /dev/video* or v4l2-ctl --list-devices to verify devices.
-Checksum Failure: Retry download; possible network issue or tampering.
-JSONC Parse Error: Ensure valid JSONC format (see config.jsonc sample).
-Environment Variable Not Set: Set variables (e.g., export RTSP_PASS_CAM0=secret) before running.
-Stream Not Working: Test with ffplay rtsp://localhost:8554/cam0 on the Pi.
-High CPU Usage: Lower bitrate/framerate in config.
-Check MediaMTX logs (runs in foreground) for detailed errors.
+No Webcam Detected: Verify devices with ls /dev/video* or v4l2-ctl --list-devices.
+Checksum Failure: Retry download; check network or file integrity.
+JSONC Parse Error: Validate JSONC syntax (see sample above).
+Environment Variable Missing: Set variables (e.g., export RTSP_PASS_CAM0=secret) before running.
+Stream Issues: Test with ffplay rtsp://localhost:8554/cam0 on the SBC.
+High CPU Usage: Reduce bitrate/framerate in configuration.
+MediaMTX Errors: Check logs (runs in foreground) for details.
 
 License
-This project is licensed under the GNU General Public License v3.0 (GPL v3). See the LICENSE file for details. Any modifications or derivative works must also be licensed under GPL v3, ensuring that improvements remain open source. For more information, visit https://www.gnu.org/licenses/gpl-3.0.html.
+This project is licensed under the GNU General Public License v3.0 (GPL v3). See the LICENSE file for details. Any modifications or derivative works must also be licensed under GPL v3, ensuring improvements remain open source. For more information, visit https://www.gnu.org/licenses/gpl-3.0.html.
 Contributing
-Contributions are welcome! Please ensure that any changes are licensed under GPL v3 and include the appropriate copyright notice. Submit pull requests with clear descriptions of improvements.
+Contributions are welcome! Ensure changes are licensed under GPL v3 and include the appropriate copyright notice. Submit pull requests with clear descriptions of improvements.
 Support
 For support, contact DeMoD LLC.
