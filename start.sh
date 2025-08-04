@@ -34,8 +34,11 @@ echo "Welcome to the DeMoD MediaMTX Start Script for webcam streaming."
 echo "Developed by DeMoD LLC"
 
 # Detect video devices
-v4l2-ctl --list-devices || { echo "Error: v4l2-ctl failed. Ensure v4l-utils is installed and webcam is connected."; exit 1; }
-DEVICES=($(v4l2-ctl --list-devices | awk '/usb/{getline; print $1}' | grep '/dev/video'))
+result = run_command("v4l2-ctl --list-devices")
+if "Error" in result:
+  echo "Error: v4l2-ctl failed. Ensure v4l-utils is installed and webcam is connected."
+  exit 1
+DEVICES=($(echo "$result" | awk '/usb/{getline; print $1}' | grep '/dev/video'))
 
 if [ ${#DEVICES[@]} -eq 0 ]; then
   echo "No USB webcams detected. Defaulting to /dev/video0 if available."
