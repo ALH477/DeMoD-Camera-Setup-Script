@@ -332,22 +332,6 @@ For enterprise support, consulting, or custom integrations:
 ---
 
 **DeMoD Camera Setup — Secure. Simple. Scalable.**
-```
-
----
-
-### Next Steps for You
-
-1. **Replace** your current `README.md` with this version.
-2. **Add** `config.jsonc.example` to repo (rename from your sample).
-3. **Update** `setup.sh` to copy `config.jsonc.example` → `config.jsonc` if missing.
-4. **Pin** MediaMTX version in docs (`v1.13.1`).
-5. **Add badges** (optional):
-
-```markdown
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![SBC Ready](https://img.shields.io/badge/SBC-RPi%20%7C%20OrangePi%20%7C%20VisionFive-green)](#)
-```
 
 Let me know if you'd like:
 - A **GitHub Actions CI** workflow
