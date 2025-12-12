@@ -353,4 +353,5 @@ Let me know if you'd like:
 - A **GitHub Actions CI** workflow
 - **Docker image**
 - **NixOS module**
-- **Home Assistant integration*
+- **Home Assistant integration**
+- **Hardware guide**
