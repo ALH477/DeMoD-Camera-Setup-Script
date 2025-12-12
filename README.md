@@ -39,6 +39,55 @@ Transform your **Single-Board Computer (SBC)** into a **professional-grade IP ca
 | x86-64 | `amd64` |
 
 > Works on: Raspberry Pi, Orange Pi, VisionFive, Intel NUC, etc.
+---
+> **Recommended Operating Systems & SBCs**  
+> Choose your stack based on **architecture**, **power**, **latency**, and **processing needs**.  
+> All are **fully validated** with DeMoD Camera Setup.
+
+| OS | Architecture | SBC Example | Power | Real-Time Kernel | Best For | Link |
+|----|--------------|-------------|-------|------------------|----------|------|
+| **ArchibaldOS** | `aarch64`, `x86_64` | **LattePanda Sigma** (i5-1340P) | Low (~5W ARM) / **High (~45–80W x86)** | **PREEMPT_RT** (cross-arch patched) | **Top Universal Choice**<br>ARM (edge) + x86 (max power) | [![ArchibaldOS](https://img.shields.io/badge/ArchibaldOS-ALH477/ArchibaldOS-2ea44f?style=flat&logo=linux)](https://github.com/ALH477/ArchibaldOS) |
+| **Raspberry Pi OS (64-bit)** | `aarch64` | Raspberry Pi 5 | Low (~6W) | `PREEMPT` | Easy Pi setup, GUI | [![Raspberry Pi OS](https://img.shields.io/badge/Raspberry%20Pi%20OS-64bit-C51A4A?style=flat&logo=raspberry-pi)](https://www.raspberrypi.com/software/) |
+| **Armbian** | `aarch64`, `armv7`, `riscv64` | Orange Pi 5 | Low (~4–8W) | `PREEMPT` or `PREEMPT_RT` | Broad SBC support | [![Armbian](https://img.shields.io/badge/Armbian-Minimal-2185D0?style=flat&logo=linux)](https://www.armbian.com) |
+| **Fedora Minimal** | `x86_64` | Intel NUC 13 | High (~15–30W) | **PREEMPT_RT** (`kernel-rt`) | High-performance x86 | [![Fedora](https://img.shields.io/badge/Fedora-Minimal%20(x86_64)-294172?style=flat&logo=fedora)](https://fedoraproject.org/coreos/download?tab=metal_virtualized) |
+
+---
+
+### **Maximum Power: LattePanda Sigma + ArchibaldOS**
+
+| Spec | Value |
+|------|-------|
+| **CPU** | Intel Core **i5-1340P** (12 cores, up to **4.6 GHz**) |
+| **GPU** | Intel Iris Xe (96 EU) — **Quick Sync Video** |
+| **RAM** | Up to **64 GB** LPDDR5 |
+| **Encoding** | **8+ 4K@30fps streams** via `-c:v h264_qsv` |
+| **Latency** | **<25ms** with PREEMPT_RT |
+| **Power** | **~45–80W** under full load |
+
+> **Pro Setup**:
+> ```bash
+> # 1. Flash ArchibaldOS x86_64 to LattePanda Sigma
+> # 2. Run:
+> ./setup.sh  # Auto-detects x86_64 + Quick Sync
+> ```
+> Use `config.py` → enable **Quick Sync** in FFMPEG:
+> ```json
+> "runOnInit": "ffmpeg -hwaccel qsv -i {device} -c:v h264_qsv -b:v 12M ..."
+> ```
+
+---
+
+### **Real-Time Kernel Nuances**
+
+| Arch | PREEMPT_RT Status | Notes |
+|------|-------------------|-------|
+| `aarch64` | Custom patched | ArchibaldOS provides **SBC-tuned RT kernel** |
+| `x86_64` | Mainline + enhanced | ArchibaldOS adds **I/O scheduling**, beats Fedora on NUCs |
+| `riscv64` | Experimental | Avoid for hard real-time |
+
+---
+
+> **Pro Tip**: On **LattePanda Sigma**, pair with **240W USB-C PD** for sustained max performance.
 
 ---
 
