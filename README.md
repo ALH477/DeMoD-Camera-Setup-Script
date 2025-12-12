@@ -81,7 +81,7 @@ Transform your **Single-Board Computer (SBC)** into a **professional-grade IP ca
 
 | Arch | PREEMPT_RT Status | Notes |
 |------|-------------------|-------|
-| `aarch64` | Custom patched | ArchibaldOS provides **SBC-tuned RT kernel** |
+| `aarch64` | Custom patched | ArchibaldOS provides **SBC-tuned semi or full RT kernel when possible** |
 | `x86_64` | Mainline + enhanced | ArchibaldOS adds **I/O scheduling**, beats Fedora on NUCs |
 | `riscv64` | Experimental | Avoid for hard real-time |
 
