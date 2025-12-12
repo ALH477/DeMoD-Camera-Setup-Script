@@ -21,82 +21,139 @@
         mediamtxArch = archMap.${system} or (throw "Unsupported system: ${system}");
 
         version = "1.13.1";
+        
+        # Fetch SHA256 hashes automatically using nix-prefetch-url
+        # Run: nix-prefetch-url --unpack <URL> to get these
         mediamtx = pkgs.stdenv.mkDerivation rec {
           pname = "mediamtx";
           inherit version;
+          
           src = pkgs.fetchurl {
             url = "https://github.com/bluenviron/mediamtx/releases/download/v${version}/mediamtx_v${version}_linux_${mediamtxArch}.tar.gz";
             sha256 = {
-              arm64 = "sha256-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; # Update after first build
-              armv7 = "sha256-YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY";
-              riscv64 = "sha256-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ";
-              amd64 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-            }.${mediamtxArch} or (throw "Add SHA256 for ${mediamtxArch}");
+              arm64 = "0000000000000000000000000000000000000000000000000000"; # TODO: Fill in
+              armv7 = "0000000000000000000000000000000000000000000000000000"; # TODO: Fill in
+              riscv64 = "0000000000000000000000000000000000000000000000000000"; # TODO: Fill in
+              amd64 = "0000000000000000000000000000000000000000000000000000"; # TODO: Fill in
+            }.${mediamtxArch};
           };
 
           sourceRoot = ".";
+          
           nativeBuildInputs = [ pkgs.autoPatchelfHook ];
           buildInputs = [ pkgs.stdenv.cc.cc.lib ];
 
           installPhase = ''
-            mkdir -p $out/bin
-            cp mediamtx $out/bin/
-            cp mediamtx.yml $out/
+            runHook preInstall
+            
+            mkdir -p $out/bin $out/share/mediamtx
+            install -Dm755 mediamtx $out/bin/mediamtx
+            install -Dm644 mediamtx.yml $out/share/mediamtx/mediamtx.yml
+            
+            runHook postInstall
           '';
 
           meta = with pkgs.lib; {
             description = "Ready-to-use RTSP server and proxy";
             homepage = "https://github.com/bluenviron/mediamtx";
             license = licenses.mit;
-            platforms = [ system ];
+            platforms = platforms.linux;
+            mainProgram = "mediamtx";
           };
         };
 
         pythonEnv = pkgs.python311.withPackages (ps: with ps; [
-          # No external deps needed — all stdlib
+          # Add any future dependencies here
         ]);
 
-        demod-camera-setup = pkgs.stdenv.mkDerivation {
+        demod-camera-setup = pkgs.stdenv.mkDerivation rec {
           pname = "demod-camera-setup";
           version = "0.1.0";
           src = ./.;
 
-          buildInputs = [ pythonEnv mediamtx pkgs.v4l-utils pkgs.bash ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          buildInputs = [ pythonEnv mediamtx pkgs.v4l-utils ];
 
           installPhase = ''
-            mkdir -p $out/bin $out/share/demod-camera-setup
+            runHook preInstall
+            
+            mkdir -p $out/{bin,share/demod-camera-setup,share/doc/demod-camera-setup}
 
             # Copy Python modules
-            cp utils.py $out/share/demod-camera-setup/
-            cp security_checker.py $out/share/demod-camera-setup/
-            cp config.py $out/share/demod-camera-setup/
+            install -Dm644 utils.py $out/share/demod-camera-setup/utils.py
+            install -Dm644 security_checker.py $out/share/demod-camera-setup/security_checker.py
+            install -Dm644 config.py $out/share/demod-camera-setup/config.py
 
-            # Copy shell scripts
-            cp start.sh $out/share/demod-camera-setup/
-            cp setup.sh $out/share/demod-camera-setup/
+            # Copy shell scripts (make executable)
+            install -Dm755 start.sh $out/share/demod-camera-setup/start.sh
+            install -Dm755 setup.sh $out/share/demod-camera-setup/setup.sh
 
             # Example config
-            cp config.jsonc.example $out/share/demod-camera-setup/config.jsonc
+            install -Dm644 config.jsonc.example $out/share/demod-camera-setup/config.jsonc.example
 
-            # Wrapper scripts
-            substituteAll ${./wrapper.sh} $out/bin/demod-setup \
-              --subst-var-by mediamtx ${mediamtx}/bin/mediamtx \
-              --subst-var-by share $out/share/demod-camera-setup
+            # Create wrapper scripts with proper shebangs
+            cat > $out/bin/demod-setup <<'EOF'
+            #!${pkgs.bash}/bin/bash
+            set -euo pipefail
+            cd ${placeholder "out"}/share/demod-camera-setup
+            exec ./setup.sh "$@"
+            EOF
 
-            substituteAll ${./start-wrapper.sh} $out/bin/demod-start \
-              --subst-var-by share $out/share/demod-camera-setup
+            cat > $out/bin/demod-start <<'EOF'
+            #!${pkgs.bash}/bin/bash
+            set -euo pipefail
+            cd ${placeholder "out"}/share/demod-camera-setup
+            exec ./start.sh "$@"
+            EOF
 
-            substituteAll ${./security-wrapper.sh} $out/bin/demod-security \
-              --subst-var-by share $out/share/demod-camera-setup
+            cat > $out/bin/demod-security <<'EOF'
+            #!${pkgs.python311}/bin/python3
+            import sys
+            import os
+            sys.path.insert(0, '${placeholder "out"}/share/demod-camera-setup')
+            os.chdir('${placeholder "out"}/share/demod-camera-setup')
+            import security_checker
+            EOF
+
+            cat > $out/bin/demod-config <<'EOF'
+            #!${pkgs.python311}/bin/python3
+            import sys
+            import os
+            sys.path.insert(0, '${placeholder "out"}/share/demod-camera-setup')
+            os.chdir('${placeholder "out"}/share/demod-camera-setup')
+            import config
+            EOF
 
             chmod +x $out/bin/*
+
+            # Wrap binaries to ensure PATH includes necessary tools
+            for prog in demod-setup demod-start demod-security demod-config; do
+              wrapProgram $out/bin/$prog \
+                --prefix PATH : ${pkgs.lib.makeBinPath [ 
+                  pkgs.v4l-utils 
+                  pkgs.coreutils 
+                  pkgs.gnugrep 
+                  pkgs.gawk 
+                  mediamtx 
+                  pkgs.findutils
+                  pkgs.util-linux
+                ]}
+            done
+            
+            runHook postInstall
           '';
 
           meta = with pkgs.lib; {
             description = "DeMoD Camera Setup - Secure RTSP streaming toolkit";
-            license = licenses.gpl3;
-            maintainers = [ "DeMoD LLC" ];
+            longDescription = ''
+              A comprehensive toolkit for setting up secure RTSP camera streaming
+              using MediaMTX with multiple configuration interfaces (CLI, TUI, Web).
+            '';
+            homepage = "https://github.com/demod/camera-setup"; # Update with actual URL
+            license = licenses.gpl3Only;
+            maintainers = with maintainers; [ ]; # Add maintainer info
             platforms = platforms.linux;
+            mainProgram = "demod-start";
           };
         };
 
@@ -108,9 +165,26 @@
         };
 
         apps = {
-          setup = flake-utils.lib.mkApp { drv = demod-camera-setup; name = "demod-setup"; };
-          start = flake-utils.lib.mkApp { drv = demod-camera-setup; name = "demod-start"; };
-          security = flake-utils.lib.mkApp { drv = demod-camera-setup; name = "demod-security"; };
+          default = flake-utils.lib.mkApp { 
+            drv = demod-camera-setup; 
+            name = "demod-start"; 
+          };
+          setup = flake-utils.lib.mkApp { 
+            drv = demod-camera-setup; 
+            name = "demod-setup"; 
+          };
+          start = flake-utils.lib.mkApp { 
+            drv = demod-camera-setup; 
+            name = "demod-start"; 
+          };
+          security = flake-utils.lib.mkApp { 
+            drv = demod-camera-setup; 
+            name = "demod-security"; 
+          };
+          config = flake-utils.lib.mkApp { 
+            drv = demod-camera-setup; 
+            name = "demod-config"; 
+          };
         };
 
         devShells.default = pkgs.mkShell {
@@ -122,17 +196,27 @@
             pkgs.gnugrep
             pkgs.gawk
             pkgs.which
+            pkgs.util-linux
             mediamtx
           ];
 
           shellHook = ''
             export PATH="$PATH:${mediamtx}/bin"
-            echo "DeMoD Camera Setup devShell"
-            echo "Run: ./setup.sh  → Full install"
-            echo "     ./start.sh  → Single cam stream"
-            echo "     python3 security_checker.py → TUI"
-            echo "     python3 config.py → Web UI"
+            echo "╔════════════════════════════════════════╗"
+            echo "║   DeMoD Camera Setup - Dev Shell      ║"
+            echo "╚════════════════════════════════════════╝"
+            echo ""
+            echo "Available commands:"
+            echo "  ./setup.sh                  → Full system install"
+            echo "  ./start.sh                  → Single camera stream"
+            echo "  python3 security_checker.py → TUI security checker"
+            echo "  python3 config.py           → Web UI (port 8000)"
+            echo ""
+            echo "MediaMTX: ${mediamtx}/bin/mediamtx"
           '';
         };
+
+        # Optional: Add formatter
+        formatter = pkgs.nixpkgs-fmt;
       });
 }
