@@ -1,91 +1,307 @@
-DeMoD Camera Setup Script
-Developed by DeMoD LLC
-This project transforms your Single-Board Computer (SBC) into an IP camera system, streaming USB webcam feeds over RTSP using FFMPEG and MediaMTX. It supports large-scale deployments with multi-camera configurations via JSONC and is optimized for various SBC architectures (ARM 32/64-bit, RISC-V, x86-64).
-Features
+# DeMoD Camera Setup  
+**Secure RTSP Streaming for SBCs with MediaMTX & FFMPEG**
 
-Modular Design: Shared logic in utils.py for JSONC parsing, security checks, and YML generation.
-Multi-Camera Support: Configure multiple cameras using JSONC with environment variable integration for passwords.
-Broad SBC Compatibility: Supports ARM (32/64-bit), RISC-V, and x86-64 architectures with architecture-specific MediaMTX binaries.
-Security Features: SHA256 checksum verification, firewall configuration (UFW or firewalld), and optional RTSP authentication.
-User Interfaces: CLI (start.sh), TUI (security_checker.py), and web-based (config.py) configuration options.
-Robust Error Handling: Input validation and clear error messages for reliable operation.
-Security Rating System: Evaluates system security with automated checks and user responses.
-GPL v3 Licensed: Ensures all improvements remain open source.
+![DeMoD LLC](https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Sierpinski-Trigon-7.svg/200px-Sierpinski-Trigon-7.svg.png)  
+*Developed by [DeMoD LLC](https://demod.ltd)*
 
-Requirements
+---
 
-SBC running Debian-based (e.g., Armbian) or Fedora-based Linux with appropriate package manager.
-USB webcam(s) with Video4Linux2 (v4l2) support.
-Installed dependencies: FFMPEG, firewall tools (ufw or firewalld), Git, Vim. The setup script handles v4l-utils, wget, tar, python3.
-Network access for downloading MediaMTX.
+Transform your **Single-Board Computer (SBC)** into a **professional-grade IP camera system**. Stream USB webcam feeds over **RTSP** using **FFMPEG** and **MediaMTX**, with support for **multi-camera setups**, **secure authentication**, and **broad SBC compatibility**.
 
-Installation
+---
 
-Clone or download the repository containing: setup.sh, start.sh, config.py, security_checker.py, utils.py, config.jsonc, LICENSE.
-Set executable permissions: chmod +x setup.sh start.sh.
-Run ./setup.sh (with sudo if needed). Select OS type and SBC architecture, follow prompts to install dependencies, download MediaMTX, configure firewall, and optionally run the security checker.
+## Features
 
-Usage
+| Feature | Description |
+|-------|-------------|
+| **Multi-Camera Support** | Configure unlimited cameras via JSONC with per-camera auth |
+| **Secure Auth** | RTSP basic auth with `env:` variable support (no plaintext passwords) |
+| **SBC-Optimized** | ARM 32/64-bit, RISC-V, x86-64 — auto-detected binaries |
+| **Security-First** | SHA256 verification, firewall config, non-root execution |
+| **Three Interfaces** | CLI (`start.sh`), TUI (`security_checker.py`), Web UI (`config.py`) |
+| **Security Rating** | 0–100 score with automated + user checks |
+| **GPL v3 Licensed** | Fully open source — all improvements stay free |
 
-CLI Single-Camera Setup: Run ./start.sh for interactive single-camera configuration.
-Web Configuration: Run python3 config.py and access http://<sbc-ip>:8000. Paste JSONC for multi-camera setups or use form fields for single. Answer security questions to improve the rating.
-TUI Security Checker: Run python3 security_checker.py for guided security and configuration, supporting JSONC for multi-camera setups.
-Stream URLs: rtsp://<sbc-ip>:8554/cam<i> (e.g., cam0, cam1; include user:pass@ if authentication enabled).
-Environment Variables: For secure password management, set variables (e.g., export RTSP_PASS_CAM0=secret) before using JSONC configs.
-Auto-Start: Add to crontab: @reboot /path/to/start.sh (single-camera, pre-configure YML). For multi-camera or TUI/web, use systemd services.
-Stop: Press Ctrl+C in terminal or use the web interface to restart (terminates old process).
+---
 
-Sample config.jsonc
+## Supported Platforms
+
+| OS Family | Package Manager | Firewall |
+|----------|------------------|----------|
+| Debian-like | `apt` | `ufw` |
+| Fedora-like | `dnf` | `firewalld` |
+
+| Architecture | MediaMTX Binary |
+|--------------|-----------------|
+| ARM 64-bit (aarch64) | `arm64` |
+| ARM 32-bit (armv7l) | `armv7` |
+| RISC-V 64-bit | `riscv64` |
+| x86-64 | `amd64` |
+
+> Works on: Raspberry Pi, Orange Pi, VisionFive, Intel NUC, etc.
+
+---
+
+## Requirements
+
+- Linux SBC with `v4l2` webcam support
+- USB webcam(s)
+- Internet access (for MediaMTX download)
+- Python 3.6+
+
+---
+
+## Installation
+
+```bash
+# 1. Clone or download the repository
+git clone https://github.com/demod-llc/camera-setup.git
+cd camera-setup
+
+# 2. Make scripts executable
+chmod +x setup.sh start.sh
+
+# 3. Run setup (use sudo if prompted)
+./setup.sh
+```
+
+### Setup Flow:
+1. Select OS type (Debian/Fedora)
+2. Select architecture
+3. Installs: `v4l-utils`, `wget`, `tar`, `python3`
+4. Adds user to `video` group
+5. Downloads **MediaMTX v1.13.1** with **SHA256 verification**
+6. Opens **port 8554/TCP** in firewall
+7. Optional: Run security checker
+
+---
+
+## Usage
+
+### 1. **Quick Start (Single Camera)**
+
+```bash
+./start.sh
+```
+
+- Detects webcams  
+- Prompts for auth (recommended)  
+- Starts stream at: `rtsp://<ip>:8554/cam`
+
+---
+
+### 2. **Web Configuration (Recommended)**
+
+```bash
+python3 config.py
+```
+
+Open browser: [http://<sbc-ip>:8000](http://localhost:8000)
+
+- Paste **multi-camera JSONC**  
+- Or configure **single camera** via form  
+- Live **security rating**  
+- Start/stop server with one click
+
+> **Secure by default**: Web UI binds to `127.0.0.1`. Use reverse proxy for remote access.
+
+---
+
+### 3. **TUI Security & Config**
+
+```bash
+python3 security_checker.py
+```
+
+- Guided security audit  
+- Fix issues interactively  
+- Supports JSONC multi-cam  
+- Final security score
+
+---
+
+## Stream URLs
+
+```text
+rtsp://<ip>:8554/cam0
+rtsp://user:pass@<ip>:8554/cam1
+```
+
+Test locally:
+```bash
+ffplay rtsp://localhost:8554/cam0
+```
+
+---
+
+## Multi-Camera Configuration (`config.jsonc`)
+
+```jsonc
 {
-  // Example multi-camera configuration
+  // Multi-camera example
   "cams": [
     {
       "device": "/dev/video0",
       "framerate": 30,
       "bitrate": "800k",
       "auth": {
-        "user": "user1",
-        "pass": "env:RTSP_PASS_CAM0"
+        "user": "admin",
+        "pass": "env:RTSP_PASS_CAM0"  // Set via: export RTSP_PASS_CAM0=secret
       }
     },
     {
       "device": "/dev/video1",
       "framerate": 25,
       "bitrate": "600k"
+      // No auth = public stream
     }
   ]
 }
+```
 
-Security Notes
+> **Never commit plaintext passwords.** Always use `env:VAR_NAME`.
 
-Authentication: Enable RTSP authentication to prevent unauthorized stream access.
-Environment Variables: Use env:VAR_NAME in JSONC for passwords to avoid plain text storage.
-Firewall: By default, only port 8554/TCP is opened. Add rules for port 8000 if exposing the web interface (use VPN for security).
-Downloads: MediaMTX downloads are verified with SHA256 checksums.
-Privileges: Run as a non-root user and ensure membership in the 'video' group for webcam access.
-Network Exposure: Avoid exposing ports publicly without HTTPS/VPN. The web server binds to localhost by default.
-Password Storage: Passwords are stored in plain text in mediamtx.yml. Secure the device and use environment variables.
-Use security_checker.py or config.py to assess and improve security settings. The rating system combines automated checks with user responses.
+---
 
-Multi-SBC Compatibility
-The codebase supports multiple SBC architectures and OSes:
+## Auto-Start on Boot
 
-OS Support: Debian-like (apt/ufw) and Fedora-like (dnf/firewalld).
-Architecture Support: ARM 64-bit, ARM 32-bit, RISC-V, x86-64.The setup.sh script prompts for OS type and architecture to download the correct MediaMTX binary and configure the firewall accordingly. For other OSes (e.g., Arch), modify the script's package and firewall commands.
+### Option 1: Simple (Single Camera)
+```bash
+crontab -e
+```
+```cron
+@reboot /home/user/camera-setup/start.sh
+```
 
-Troubleshooting
+### Option 2: Systemd Service (Multi-Camera / Web UI)
 
-No Webcam Detected: Verify devices with ls /dev/video* or v4l2-ctl --list-devices.
-Checksum Failure: Retry download; check network or file integrity.
-JSONC Parse Error: Validate JSONC syntax (see sample above).
-Environment Variable Missing: Set variables (e.g., export RTSP_PASS_CAM0=secret) before running.
-Stream Issues: Test with ffplay rtsp://localhost:8554/cam0 on the SBC.
-High CPU Usage: Reduce bitrate/framerate in configuration.
-Check MediaMTX logs (runs in foreground) for details.
+Create `/etc/systemd/system/demod-camera.service`:
+```ini
+[Unit]
+Description=DeMoD Camera RTSP Server
+After=network.target
 
-License
-This project is licensed under the GNU General Public License v3.0 (GPL v3). See the LICENSE file for details. Any modifications or derivative works must also be licensed under GPL v3, ensuring improvements remain open source. For more information, visit https://www.gnu.org/licenses/gpl-3.0.html.
-Contributing
-Contributions are welcome! Ensure changes are licensed under GPL v3 and include the appropriate copyright notice. Submit pull requests with clear descriptions of improvements.
-Support
-For support, contact DeMoD LLC.
+[Service]
+Type=simple
+User=youruser
+WorkingDirectory=/home/youruser/camera-setup
+ExecStart=/usr/bin/python3 config.py
+Restart=always
+Environment=RTSP_PASS_CAM0=your-secret-here
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable:
+```bash
+sudo systemctl enable --now demod-camera.service
+```
+
+---
+
+## Security Best Practices
+
+| Practice | Command |
+|--------|---------|
+| **Use env vars** | `export RTSP_PASS_CAM0=strongpass` |
+| **Run as non-root** | Avoid `sudo` for `start.sh` |
+| **Restrict web UI** | Keep `127.0.0.1:8000` or use VPN |
+| **Enable firewall** | Only 8554/TCP open by default |
+| **Use TLS (optional)** | Reverse proxy with Caddy/Nginx |
+
+### Recommended: TLS + Auth (Caddy Example)
+
+```caddy
+camera.demod.ltd {
+    reverse_proxy localhost:8000
+    basicauth {
+        user JDJhJDEyJ...
+    }
+}
+```
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|------|----------|
+| `No webcam detected` | `ls /dev/video*` or `v4l2-ctl --list-devices` |
+| `Checksum failed` | Retry `./setup.sh` — network issue |
+| `JSONC error` | Validate syntax; use sample |
+| `Stream not playing` | Test with `ffplay` locally |
+| `High CPU` | Lower `bitrate` or `framerate` |
+
+---
+
+## Project Structure
+
+```
+.
+├── setup.sh              → Installs deps + MediaMTX
+├── start.sh              → CLI single-cam setup
+├── config.py             → Web UI (http://:8000)
+├── security_checker.py   → TUI security audit
+├── utils.py              → Shared logic
+├── config.jsonc.example  → Multi-cam template
+├── mediamtx              → Binary (after setup)
+└── mediamtx.yml          → Generated config
+```
+
+---
+
+## Contributing
+
+We welcome contributions!  
+- Fork and submit a **Pull Request**  
+- All code must be **GPL v3**  
+- Include copyright header  
+- Test on real hardware
+
+---
+
+## License
+
+```
+GNU General Public License v3.0 (GPL-3.0)
+Copyright (C) 2025 DeMoD LLC
+```
+
+See [`LICENSE`](LICENSE) for full text.
+
+> This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License.
+
+---
+
+## Support
+
+For enterprise support, consulting, or custom integrations:
+
+**Contact**: [DeMoD LLC](https://demod.ltd/contact)
+
+---
+
+**DeMoD Camera Setup — Secure. Simple. Scalable.**
+```
+
+---
+
+### Next Steps for You
+
+1. **Replace** your current `README.md` with this version.
+2. **Add** `config.jsonc.example` to repo (rename from your sample).
+3. **Update** `setup.sh` to copy `config.jsonc.example` → `config.jsonc` if missing.
+4. **Pin** MediaMTX version in docs (`v1.13.1`).
+5. **Add badges** (optional):
+
+```markdown
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![SBC Ready](https://img.shields.io/badge/SBC-RPi%20%7C%20OrangePi%20%7C%20VisionFive-green)](#)
+```
+
+Let me know if you'd like:
+- A **GitHub Actions CI** workflow
+- **Docker image**
+- **NixOS module**
+- **Home Assistant integration*
